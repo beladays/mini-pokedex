@@ -5,15 +5,7 @@ O app consome a PokéAPI, permite listar Pokémon, buscar por nome e ver detalhe
 
  Tecnologias utilizadas:
 
-React Native (Expo)
-
-TypeScript
-
-React Navigation
-
-Fetch API
-
-PokéAPI: https://pokeapi.co/
+React Native (Expo), TypeScript, React Navigation, Fetch API e PokéAPI: https://pokeapi.co/
 
 
 Funcionalidades
