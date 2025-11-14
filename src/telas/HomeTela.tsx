@@ -1,13 +1,5 @@
 import React, { useEffect, useState } from "react";
-import {
-  View,
-  Text,
-  TextInput,
-  Button,
-  FlatList,
-  ActivityIndicator,
-  StyleSheet,
-} from "react-native";
+import {View, Text, TextInput, Button, FlatList,ActivityIndicator,StyleSheet,} from "react-native";
 import PokemonItem from "../componentes/PokemonItem";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../AppNavigator";
@@ -22,9 +14,9 @@ export default function ListaScreen({ navigation }: Props) {
   const [offset, setOffset] = useState(0);
   const [search, setSearch] = useState("");
 
-  // -------------------------------
-  // FUNÇÃO PARA CARREGAR A LISTA
-  // -------------------------------
+ 
+  // CARREGAR A LISTA
+
   async function loadPage(limit = 20, newOffset = 0) {
     try {
       setLoading(true);
@@ -50,9 +42,9 @@ export default function ListaScreen({ navigation }: Props) {
     loadPage(20, 0);
   }, []);
 
-  // -------------------------------
-  // BUSCA POR NOME
-  // -------------------------------
+ 
+  // busca por NOME
+
   async function searchByName() {
     const query = search.trim().toLowerCase();
     if (!query) {
@@ -100,7 +92,7 @@ export default function ListaScreen({ navigation }: Props) {
         <Button title="Buscar" onPress={searchByName} />
       </View>
 
-      {/* LOADING */}
+      {/* negocinho de carregameno*/}
       {loading && <ActivityIndicator size="large" />}
       {loading && <Text>Carregando...</Text>}
 

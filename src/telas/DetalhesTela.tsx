@@ -1,12 +1,5 @@
 import React, { useEffect, useState } from "react";
-import {
-  View,
-  Text,
-  Image,
-  ActivityIndicator,
-  Button,
-  StyleSheet,
-} from "react-native";
+import { View, Text, Image,ActivityIndicator,Button,StyleSheet,} from "react-native";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../AppNavigator";
 

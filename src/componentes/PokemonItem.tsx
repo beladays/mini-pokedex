@@ -21,8 +21,8 @@ const styles = StyleSheet.create({
     marginVertical: 6,
     backgroundColor: "#e8e8e8",
     borderRadius: 10,
-    elevation: 2, // leve sombra no Android
-    shadowColor: "#000", // sombra no iOS
+    elevation: 2, 
+    shadowColor: "#000", 
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.2,
     shadowRadius: 2,
