@@ -89,6 +89,4 @@ GET https://pokeapi.co/api/v2/pokemon/{nome}
 📘 Detalhes
 GET https://pokeapi.co/api/v2/pokemon/{nome}
 
- erro e 404.
-A interface é simples e responsiva, usando apenas componentes nativos.
-Todo código está separado em telas e componentes para ficar mais organizado.”
+
