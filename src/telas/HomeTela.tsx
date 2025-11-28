@@ -111,7 +111,7 @@ export default function ListaScreen({ navigation }: Props) {
   function handleSearch(text: string) {
     setSearch(text);
 
-    if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (debounceRef.current) clearTimeout(debounceRef.current); //p n ficar fazendo req a cada letra
 
     debounceRef.current = setTimeout(async () => {
       if (!text.trim()) {
