@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import {View,Text,TextInput,Button,FlatList,ActivityIndicator,StyleSheet,TouchableOpacity,} from "react-native";
 import PokemonItem from "../componentes/PokemonItem";
+
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../AppNavigator";
 
