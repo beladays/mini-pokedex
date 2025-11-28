@@ -1,178 +1,264 @@
-import React, { useEffect, useState } from "react";
-import {View, Text, TextInput, Button, FlatList,ActivityIndicator,StyleSheet,} from "react-native";
+import React, { useEffect, useRef, useState } from "react";
+import {View,Text,TextInput,Button,FlatList,ActivityIndicator,StyleSheet,TouchableOpacity,} from "react-native";
 import PokemonItem from "../componentes/PokemonItem";
 import { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { RootStackParamList } from "../AppNavigator";
 
-type Props = NativeStackScreenProps<RootStackParamList, "Lista">;
+type Props = NativeStackScreenProps<RootStackParamList, "Lista">; //ts sabe qual tela usa
+
+const LIMIT = 20;
+const TIMEOUT = 8000;
+const MAX_RETRIES = 3; //
+
+const TYPES = [
+  "all","fire","water","grass","electric","bug","normal","poison",
+  "ground","fairy","fighting","psychic","rock","ghost","ice","dragon"
+];
 
 export default function ListaScreen({ navigation }: Props) {
   const [pokemonList, setPokemonList] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
   const [offset, setOffset] = useState(0);
   const [search, setSearch] = useState("");
+  const [selectedType, setSelectedType] = useState("all");
+  const [showTypes, setShowTypes] = useState(false);
+  const controllerRef = useRef<AbortController | null>(null);
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
- 
-  // CARREGAR A LISTA
 
-  async function loadPage(limit = 20, newOffset = 0) {
+  async function fetchWithRetry(url: string, attempt = 1): Promise<any> {
+    controllerRef.current?.abort(); //Se existe uma requisição antiga rodand acaba 
+    const controller = new AbortController(); //cancelar req
+    controllerRef.current = controller;
+
+    const timeoutId = setTimeout(() => controller.abort(), TIMEOUT);
+
+    try {
+      const response = await fetch(url, { signal: controller.signal });
+
+      if (!response.ok) {
+        if (attempt < MAX_RETRIES && response.status >= 500) {
+          await new Promise(resolve =>
+            setTimeout(resolve, 1000 * attempt)
+          );
+          return fetchWithRetry(url, attempt + 1);
+        }
+        throw new Error();
+      }
+
+      return await response.json();
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+
+  async function loadPokemons() {
+    if (loading || selectedType !== "all") return;
+
     try {
       setLoading(true);
       setError(null);
 
-      const res = await fetch(
-        `https://pokeapi.co/api/v2/pokemon?limit=${limit}&offset=${newOffset}`
+      const data = await fetchWithRetry(
+        `https://pokeapi.co/api/v2/pokemon?limit=${LIMIT}&offset=${offset}`
       );
 
-      if (!res.ok) throw new Error("Erro ao buscar lista");
-
-      const data = await res.json();
-      setPokemonList(data.results); // lista de { name, url }
-    } catch (e) {
-      setError("Erro ao carregar lista. Tentar novamente?");
+      setPokemonList(prev => [...prev, ...data.results]);
+      setOffset(prev => prev + LIMIT);
+    } catch {
+      setError("Erro ao carregar lista.");
     } finally {
       setLoading(false);
     }
   }
 
-  // carregar primeira página
-  useEffect(() => {
-    loadPage(20, 0);
-  }, []);
-
- 
-  // busca por NOME
-
-  async function searchByName() {
-    const query = search.trim().toLowerCase();
-    if (!query) {
-      setOffset(0);
-      loadPage(20, 0);
-      return;
-    }
-
+  async function loadByType(type: string) {
     try {
       setLoading(true);
       setError(null);
 
-      const res = await fetch(
-        `https://pokeapi.co/api/v2/pokemon/${query}`
+      const data = await fetchWithRetry(
+        `https://pokeapi.co/api/v2/type/${type}`
       );
 
-      if (res.status === 404) {
-        setError("Pokémon não encontrado");
-        return;
-      }
-
-      if (!res.ok) throw new Error("Erro ao buscar Pokémon");
-
-      const data = await res.json();
-
-      navigation.navigate("Detalhe", { name: data.name });
-    } catch (e) {
-      setError("Erro na busca. Tentar novamente?");
+      const pokemons = data.pokemon.map((p: any) => p.pokemon);
+      setPokemonList(pokemons);
+    } catch {
+      setError("Erro ao filtrar por tipo.");
     } finally {
       setLoading(false);
     }
+  }
+
+  useEffect(() => {
+    loadPokemons();
+  }, []);
+
+  function handleTypeSelect(type: string) {
+    setSelectedType(type);
+    setShowTypes(false);
+    setPokemonList([]);
+    setOffset(0);
+
+    if (type === "all") {
+      loadPokemons();
+    } else {
+      loadByType(type);
+    }
+  }
+
+  function handleSearch(text: string) {
+    setSearch(text);
+
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+
+    debounceRef.current = setTimeout(async () => {
+      if (!text.trim()) {
+        setPokemonList([]);
+        setOffset(0);
+        loadPokemons();
+        return;
+      }
+
+      try {
+        setLoading(true);
+        setError(null);
+
+        const data = await fetchWithRetry(
+          `https://pokeapi.co/api/v2/pokemon/${text.toLowerCase()}`
+        );
+
+        navigation.navigate("Detalhe", { name: data.name });
+      } catch {
+        setError("Pokémon não encontrado.");
+      } finally {
+        setLoading(false);
+      }
+    }, 500);
   }
 
   return (
     <View style={styles.container}>
-      
-      {/* CAMPO DE BUSCA */}
-      <View style={styles.searchRow}>
-        <TextInput
-          style={styles.input}
-          placeholder="Buscar por nome..."
-          value={search}
-          onChangeText={setSearch}
-        />
-        <Button title="Buscar" onPress={searchByName} />
-      </View>
+      <TextInput
+        style={styles.input}
+        placeholder="Buscar Pokémon..."
+        value={search}
+        onChangeText={handleSearch}
+      />
 
-      {/* negocinho de carregameno*/}
-      {loading && <ActivityIndicator size="large" />}
-      {loading && <Text>Carregando...</Text>}
+      {/* BOTÃO FILTRO POR TIPO */}
+      <TouchableOpacity
+        style={styles.filterButton}
+        onPress={() => setShowTypes(!showTypes)}
+      >
+        <Text>Tipo: {selectedType.toUpperCase()}</Text>
+      </TouchableOpacity>
 
-      {/* ERRO */}
-      {error && (
-        <View>
-          <Text style={{ color: "red", marginTop: 10 }}>{error}</Text>
-          <Button
-            title="Tentar novamente"
-            onPress={() => loadPage(20, offset)}
-          />
+      {showTypes && (
+        <View style={styles.typesBox}>
+          {TYPES.map(type => (
+            <TouchableOpacity
+              key={type}
+              onPress={() => handleTypeSelect(type)}
+            >
+              <Text style={styles.typeItem}>{type}</Text>
+            </TouchableOpacity>
+          ))}
         </View>
       )}
 
-      {/* LISTA */}
-      {!loading && !error && (
-        <FlatList
-          data={pokemonList}
-          keyExtractor={(item) => item.name}
-          renderItem={({ item }) => (
-            <PokemonItem
-              name={item.name}
-              onPress={() =>
-                navigation.navigate("Detalhe", { name: item.name })
-              }
-            />
-          )}
-        />
+      {error && (
+        <View>
+          <Text style={styles.error}>{error}</Text>
+          <Button title="Tentar novamente" onPress={loadPokemons} />
+        </View>
       )}
 
-      {/* PAGINAÇÃO */}
-      <View style={styles.pagination}>
-        <Button
-          title="Anterior"
-          onPress={() => {
-            const newOffset = Math.max(offset - 20, 0);
-            setOffset(newOffset);
-            loadPage(20, newOffset);
-          }}
-        />
-        <Button
-          title="Próxima"
-          onPress={() => {
-            const newOffset = offset + 20;
-            setOffset(newOffset);
-            loadPage(20, newOffset);
-          }}
-        />
-      </View>
+      <FlatList
+        data={pokemonList}
+        keyExtractor={(item) => item.name}
+        renderItem={({ item }) => (
+          <PokemonItem
+            name={item.name}
+            onPress={() =>
+              navigation.navigate("Detalhe", { name: item.name })
+            }
+          />
+        )}
+        onEndReached={loadPokemons}
+        onEndReachedThreshold={0.5}
+        ListFooterComponent={
+          loading ? <ActivityIndicator size="large" /> : null
+        }
+      />
     </View>
   );
 }
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingHorizontal: 12,
-    paddingTop: 20,
-    backgroundColor: "#fff",
-  },
-
-  searchRow: {
-    flexDirection: "row",
-    marginBottom: 12,
-    alignItems: "center",
-    gap: 8,
+    padding: 16,
+    backgroundColor: "#f5f6fa",
   },
 
   input: {
-    flex: 1,
     borderWidth: 1,
-    borderColor: "#ccc",
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    borderRadius: 8,
+    borderColor: "#dcdde1",
+    backgroundColor: "#fff",
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 14,
     fontSize: 16,
+    elevation: 1,
   },
 
-  pagination: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginVertical: 20,
+  filterButton: {
+    padding: 12,
+    backgroundColor: "#e1e5eb",
+    borderRadius: 10,
+    marginBottom: 14,
+    alignItems: "center",
+    elevation: 1,
   },
+
+  typesBox: {
+    backgroundColor: "#fff",
+    padding: 14,
+    borderRadius: 12,
+    marginBottom: 14,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    elevation: 2,
+  },
+
+  typeItem: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: "#f0f0f0",
+    borderRadius: 20,
+    fontSize: 14,
+  },
+
+  error: {
+    color: "red",
+    marginBottom: 10,
+    textAlign: "center",
+    fontSize: 15,
+  },
+
+  // Card Pokémon
+  card: {
+    backgroundColor: "#fff",
+    padding: 14,
+    borderRadius: 12,
+    marginVertical: 6,
+    elevation: 2,
+  },
+
+  // botão de tipo selecionado 
+  typeSelected: {
+    backgroundColor: "#ffe066",
+  }
 });
